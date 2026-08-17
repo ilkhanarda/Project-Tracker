@@ -1,0 +1,1014 @@
+.app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif, sans-serif;
+    background-color: var(--app-background);
+    overflow: hidden;
+}
+
+.sidePanel {
+    display: flex;
+    width: 350px;
+    height: 100%;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding: 30px;
+    gap: 20px;
+    justify-content: flex-start;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    color: var(--sidebar-text);
+    overflow-y: auto;
+    scrollbar-width: none;
+    transition:
+        width 0.25s ease,
+        padding 0.25s ease;
+}
+
+.navbar {
+    display: flex;
+    width: 100%;
+    height: 100px;
+    flex-shrink: 0;
+    padding: 0 20px;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    gap: 20px;
+}
+
+.searchBar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    max-width: 720px;
+    height: 52px;
+    padding: 0 10px 0 16px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background-color: var(--card-bg);
+    box-shadow: var(--control-shadow);
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.searchBar:focus-within {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px var(--completed-border);
+}
+
+.searchIcon {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.searchBar input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 16px;
+}
+
+.searchBar input::placeholder {
+    color: var(--text-secondary);
+}
+
+.searchShortcut {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-shrink: 0;
+    min-width: 58px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background-color: var(--surface-secondary);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.searchShortcut:hover {
+    border-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.searchShortcut:focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.navbarActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.themeToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background-color: var(--surface-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.themeToggle:hover {
+    border-color: var(--selected-border);
+    background-color: var(--surface-hover);
+    color: var(--primary-bright);
+}
+
+.themeToggle:focus-visible {
+    outline: 3px solid var(--completed-border);
+    outline-offset: 2px;
+}
+
+.brandContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    width: 100%;
+    min-height: 60px;
+}
+
+.sidebarDivider {
+    width: 100%;
+    height: 1px;
+    flex-shrink: 0;
+    background-color: var(--border-subtle);
+}
+
+.projectsTitle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.projectsHeader {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.projectsActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.brand {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    display: flex;
+    text-align: left;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    color: var(--sidebar-text);
+}
+
+.sidebarToggle,
+.projectsToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: var(--sidebar-muted);
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.sidebarToggle:hover,
+.projectsToggle:hover {
+    background-color: var(--sidebar-hover);
+    color: var(--sidebar-text);
+}
+
+.sidebarToggle:focus-visible,
+.projectsToggle:focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+}
+
+.projects {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.projectSearchEmpty {
+    margin: 0;
+    color: var(--sidebar-muted);
+    font-size: 14px;
+    text-align: left;
+}
+
+.sidePanel.collapsed .projectSearchEmpty {
+    display: none;
+}
+
+.projectContainer {
+    padding: 10px;
+    border: none;
+    background-color: var(--sidebar-surface);
+    color: var(--sidebar-text);
+    cursor: pointer;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    border-radius: 15px;
+    transition: background-color 0.3s ease;
+}
+
+.projectContainer:hover {
+    background-color: var(--sidebar-hover);
+    transform: translateY(-2px);
+}
+
+.projectContainer[aria-current="true"] {
+    background-color: var(--selected-project);
+    color: var(--primary-bright);
+}
+
+.projectContainer[aria-current="true"] .iconAndName {
+    color: var(--primary-bright);
+}
+
+.projectContainer[aria-current="true"] .projectInitial {
+    border-color: var(--selected-border);
+    background-color: var(--primary-soft);
+    color: var(--primary-bright);
+}
+
+.sidePanel.collapsed {
+    width: 80px;
+    padding-inline: 16px;
+}
+
+.sidePanel.collapsed .brandContainer,
+.sidePanel.collapsed .projectsHeader {
+    justify-content: center;
+}
+
+.sidePanel.collapsed .brand,
+.sidePanel.collapsed .sidebarLabel,
+.sidePanel.collapsed .projectsActions,
+.sidePanel.collapsed .project-name {
+    display: none;
+}
+
+.sidePanel.collapsed .projectsTitle,
+.sidePanel.collapsed .iconAndName {
+    justify-content: center;
+    gap: 0;
+}
+
+.sidePanel.collapsed .projects {
+    align-items: center;
+}
+
+.sidePanel.collapsed .projectContainer {
+    width: 48px;
+    height: 48px;
+    justify-content: center;
+    padding: 0;
+}
+
+.sidePanel.collapsed .project-info {
+    width: auto;
+    align-items: center;
+}
+
+.project-info {
+    display: flex;
+    align-items: start;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.project-name {
+    display: inline-block;
+    vertical-align: middle;
+    width: 100%;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.projectInitial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--surface-secondary);
+    color: var(--sidebar-muted);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.projectInitialInline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    height: 120px;
+    flex-shrink: 0;
+    border-radius: 20px;
+    border: 1px solid var(--project-initial-border);
+    background-color: var(--selected-project);
+    color: var(--project-initial-text);
+    font-size: 70px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+.projectHeaderContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    height: fit-content;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.projectHeaderDetails {
+    flex: 1;
+    min-width: 0;
+}
+
+.tasksTitleContainer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    height: fit-content;
+    justify-content: space-between;
+}
+
+.tasksHeader {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+}
+
+.addTaskButton {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    padding: 8px 14px;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    background-color: var(--primary);
+    color: var(--on-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    align-items: center;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.addTaskButton:hover {
+    border-color: var(--primary-hover);
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.addTaskButton:focus-visible {
+    outline: 3px solid var(--completed-border);
+    outline-offset: 2px;
+}
+
+.taskCountBadge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background-color: var(--neutral-badge-bg);
+    color: var(--neutral-badge-text);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.projectContent {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    justify-content: flex-start;
+    padding: 40px;
+    background-color: var(--main-bg);
+    overflow-y: auto;
+}
+
+.projectContentEmpty {
+    align-items: center;
+    justify-content: center;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1;
+}
+
+.breadcrumbLink {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.breadcrumbLink:hover {
+    color: var(--primary);
+}
+
+.breadcrumbLink:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--primary-light);
+    outline-offset: 3px;
+}
+
+.breadcrumbSeparator {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.breadcrumbCurrent {
+    min-width: 0;
+    max-width: 300px;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.project-status {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--primary);
+    align-self: flex-start;
+}
+
+.project-header {
+    display: flex;
+    width: 100%;
+    height: auto;
+    justify-content: space-between;
+}
+
+.iconAndName {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+    align-items: center;
+    color: var(--sidebar-muted);
+}
+
+.header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+}
+
+.addProjectButton {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 18px;
+    border: 1px solid var(--primary);
+    border-radius: 10px;
+    background-color: var(--primary);
+    color: var(--on-primary);
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    align-items: center;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.addProjectButton:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.addProjectButton:focus-visible {
+    outline: 3px solid var(--completed-border);
+    outline-offset: 2px;
+}
+
+.formButton {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--neutral-badge-bg);
+    color: var(--neutral-badge-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    align-items: center;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.projectTitle {
+    width: fit-content;
+    height: auto;
+    display: inline-block;
+    align-self: flex-start;
+
+    font-size: 45px;
+    font-weight: bold;
+    line-height: 1.2;
+    letter-spacing: -1.68px;
+    margin: 0;
+}
+
+.tasksTitle {
+    width: fit-content;
+    height: auto;
+    display: inline-block;
+
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1.2;
+    letter-spacing: -0.24px;
+    margin: 0;
+}
+
+.projectDescription {
+    width: fit-content;
+    height: auto;
+    display: inline-block;
+    align-self: flex-start;
+
+    text-align: justify;
+
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.taskMessage,
+.emptyState {
+    width: fit-content;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.removeButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid var(--danger-border);
+    background-color: var(--danger-soft);
+    border-radius: 8px;
+    color: var(--danger);
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.removeButton:hover {
+    border-color: var(--danger);
+    background-color: var(--danger);
+    color: var(--on-primary);
+    transform: translateY(-1px);
+}
+
+.removeButton:focus-visible {
+    outline: 3px solid var(--danger-border);
+    outline-offset: 2px;
+}
+
+.removeButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
+.removeProjectButton {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 18px;
+    flex-shrink: 0;
+    border: 1px solid var(--danger-border);
+    background-color: var(--danger-soft);
+    border-radius: 10px;
+    color: var(--danger);
+    font: inherit;
+    font-weight: 700;
+    align-self: flex-end;
+    margin-top: auto;
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.removeProjectButton:hover {
+    border-color: var(--danger);
+    background-color: var(--danger);
+    color: var(--on-primary);
+    transform: translateY(-1px);
+}
+
+.removeProjectButton:focus-visible {
+    outline: 3px solid var(--danger-border);
+    outline-offset: 2px;
+}
+
+.removeProjectButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
+.tasksSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    height: fit-content;
+    justify-content: flex-start;
+    padding-top: 20px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background-color: var(--card-bg);
+    padding: 20px;
+}
+
+.separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    width: 100%;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    height: 40px;
+}
+
+.separatorLabel {
+    margin: 0;
+    align-self: auto;
+    line-height: 1;
+}
+
+.separator::before,
+.separator::after {
+    content: "";
+    height: 1px;
+    background-color: var(--text-secondary);
+}
+
+.separator::before {
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.separator::after {
+    flex: 1;
+}
+
+.taskContainer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    width: 100%;
+    padding: 0;
+    justify-content: space-between;
+
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    cursor: default;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.taskContainer:hover {
+    background-color: var(--completed-bg);
+    border-color: var(--completed-border);
+    transform: translateY(-1px);
+}
+
+.taskToggle:focus-visible {
+    outline: 3px solid var(--completed-border);
+    outline-offset: 2px;
+}
+
+.taskToggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+    padding: 14px 0 14px 16px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-check-icon {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.taskTitle {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 16px;
+    line-height: 1.4;
+    text-align: left;
+}
+
+.taskContainer.completed {
+    background-color: var(--completed-bg);
+    border-color: var(--completed-border);
+}
+
+.taskContainer.completed .task-check-icon {
+    color: var(--primary);
+}
+
+.taskContainer.completed .taskTitle {
+    color: var(--text-secondary);
+}
+
+.task-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.task-status {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+    background-color: var(--neutral-badge-bg);
+    color: var(--neutral-badge-text);
+    align-self: center;
+    white-space: nowrap;
+}
+
+.taskStatusText {
+    margin: 0;
+    color: var(--neutral-badge-text);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.taskContainer.completed .task-status {
+    border-color: var(--completed-border);
+    background-color: var(--completed-border);
+}
+
+.taskContainer.completed .taskStatusText {
+    color: var(--completed-text);
+}
+
+.taskContainer .removeButton {
+    margin-right: 16px;
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        height: 84px;
+        padding-inline: 16px;
+    }
+
+    .searchShortcut {
+        display: none;
+    }
+
+    .projectContent {
+        padding: 24px;
+    }
+
+    .projectInitialInline {
+        height: 88px;
+        font-size: 50px;
+    }
+}
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: var(--overlay);
+}
+
+.modalContent {
+    width: min(420px, 100%);
+    padding: 24px;
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+    text-align: left;
+}
+
+.modalTitle {
+    color: var(--text-primary);
+    font-family: var(--heading);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.24px;
+    margin-bottom: 18px;
+}
+
+.modalContent form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.modalContent input,
+.modalContent textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.modalContent textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.formButton[type="submit"] {
+    color: var(--on-primary);
+    background: var(--primary);
+}
+
+.formButton[type="submit"]:hover {
+    background: var(--primary-hover);
+}
+
+.formButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.app,
+.sidePanel,
+.navbar,
+.projectContent,
+.searchBar,
+.themeToggle,
+.projectContainer,
+.projectInitial,
+.projectInitialInline,
+.tasksSection,
+.taskContainer,
+.task-status,
+.modalContent,
+.formButton {
+    transition-property:
+        background-color,
+        border-color,
+        color,
+        box-shadow,
+        transform,
+        width,
+        padding;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+}

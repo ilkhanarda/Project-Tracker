@@ -1,0 +1,152 @@
+:root {
+  color-scheme: light;
+
+  --app-background: #F8F9FA;
+  --sidebar-background: #FFFFFF;
+  --main-background: #F8F9FA;
+  --surface: #FFFFFF;
+  --surface-secondary: #F8F9FA;
+  --surface-hover: #F3F4F6;
+
+  --border: #E5E7EB;
+  --border-subtle: #EEF0F2;
+
+  --foreground: #111827;
+  --foreground-secondary: #6B7280;
+  --foreground-muted: #A0A3A8;
+  --foreground-disabled: #B9C0C8;
+
+  --primary: #4F46E5;
+  --primary-alternative: #5F67E1;
+  --primary-hover: #4338CA;
+  --primary-bright: #4F46E5;
+  --primary-soft: #EEF0FF;
+  --selected-background: rgba(79, 70, 229, 0.08);
+  --selected-border: rgba(79, 70, 229, 0.20);
+
+  --success: #10B981;
+  --danger: #F43F5E;
+  --danger-soft: #FFF1F2;
+  --danger-border: #FECDD3;
+  --warning: #F59E0B;
+  --on-primary: #FFFFFF;
+
+  --overlay: rgba(24, 34, 45, 0.58);
+  --control-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+  --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+
+  /* Existing component aliases backed by semantic theme tokens. */
+  --sidebar-bg: var(--sidebar-background);
+  --sidebar-surface: transparent;
+  --sidebar-hover: var(--surface-hover);
+  --sidebar-text: var(--foreground);
+  --sidebar-muted: var(--foreground-muted);
+  --primary-light: var(--primary-alternative);
+  --selected-project: var(--selected-background);
+  --main-bg: var(--main-background);
+  --card-bg: var(--surface);
+  --text-primary: var(--foreground);
+  --text-secondary: var(--foreground-secondary);
+  --completed-bg: var(--primary-soft);
+  --completed-border: var(--selected-border);
+  --completed-text: var(--primary);
+  --neutral-badge-bg: var(--surface-hover);
+  --neutral-badge-text: var(--foreground-secondary);
+  --project-initial-border: var(--selected-border);
+  --project-initial-text: var(--primary);
+
+  --sans: system-ui, 'Montserrat', Roboto, sans-serif;
+  --heading: system-ui, 'Montserrat', Roboto, sans-serif;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color: var(--text-secondary);
+  background: var(--main-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --app-background: #18222D;
+  --sidebar-background: #18222D;
+  --main-background: #1E2935;
+  --surface: #202C39;
+  --surface-secondary: #2E3945;
+  --surface-hover: #263443;
+
+  --border: #39444E;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+
+  --foreground: #F8FAFC;
+  --foreground-secondary: #CBD1D8;
+  --foreground-muted: #8D9195;
+  --foreground-disabled: #555C65;
+
+  --primary: #4E62E9;
+  --primary-alternative: #5F6FF0;
+  --primary-hover: #5F6FF0;
+  --primary-bright: #919CF1;
+  --primary-soft: rgba(78, 98, 233, 0.14);
+  --selected-background: rgba(78, 98, 233, 0.18);
+  --selected-border: rgba(145, 156, 241, 0.25);
+
+  --success: #4ADE80;
+  --danger: #FB7185;
+  --danger-soft: rgba(251, 113, 133, 0.12);
+  --danger-border: rgba(251, 113, 133, 0.28);
+  --warning: #FBBF24;
+  --on-primary: #FFFFFF;
+
+  --overlay: rgba(10, 16, 23, 0.68);
+  --control-shadow: none;
+  --shadow: none;
+
+  --sidebar-surface: transparent;
+  --completed-text: var(--primary-bright);
+  --project-initial-text: var(--primary-bright);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+
+#root {
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--main-bg);
+  color: var(--text-primary);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-primary);
+}
