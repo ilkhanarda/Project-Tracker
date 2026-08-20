@@ -32,7 +32,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <RootNavigator />
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
     </AuthProvider>
   );
 }

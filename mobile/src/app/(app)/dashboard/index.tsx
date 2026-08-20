@@ -1,11 +1,12 @@
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme, useWindowDimensions, type StyleProp, type ViewStyle, } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle2, ChevronRight, Circle, Files, Folder, FolderPlus, LogOut, Menu, Moon, Pin, Plus, RefreshCw, Search, Sun, Trash2, X, } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, Circle, Files, Folder, FolderPlus, LogOut, Menu, Moon, Pin, Plus, RefreshCw, Search, Smartphone, Sun, Trash2, X, User } from 'lucide-react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Reanimated, { Easing as ReanimatedEasing, clamp, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Reanimated, { Easing as ReanimatedEasing, clamp, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -13,6 +14,7 @@ import { createProjectRequest, deleteProjectRequest, getProjectsRequest, updateP
 import type { Project } from '@/features/projects/types';
 import { createTaskRequest, deleteTaskRequest, getTasksRequest, updateTaskRequest, } from '@/features/tasks/api';
 import type { Task } from '@/features/tasks/types';
+import { themePreferenceStorage, type ThemePreference } from '@/lib/theme-storage';
 
 type ThemeName = 'light' | 'dark';
 
@@ -22,6 +24,7 @@ type Colors = (typeof themeColors)[ThemeName];
 const themeColors = {
   light: {
     appBackground: '#E9EBF0',
+    drawerBackground: '#F7F7FA',
     surface: '#F7F7FA',
     card: '#FFFFFF',
     cardMuted: '#F1F1F6',
@@ -38,21 +41,22 @@ const themeColors = {
     overlay: 'rgba(15,17,25,0.32)',
   },
   dark: {
-    appBackground: '#0E0F14',
-    surface: '#15161D',
-    card: '#1E1F28',
-    cardMuted: '#272833',
-    border: '#343642',
-    text: '#F6F6F8',
-    secondaryText: '#A6A7B2',
-    primary: '#918AFF',
-    primarySoft: '#2B2852',
-    primaryBorder: '#59538F',
-    success: '#70C69C',
-    successSoft: '#1D382B',
-    danger: '#FF8795',
-    dangerSoft: '#44242A',
-    overlay: 'rgba(0,0,0,0.58)',
+    appBackground: '#000000',
+    drawerBackground: '#000000',
+    surface: '#171717',
+    card: '#212121',
+    cardMuted: '#2C2C2E',
+    border: '#363638',
+    text: '#FFFFFF',
+    secondaryText: '#A1A1AA',
+    primary: '#A970FF',
+    primarySoft: 'rgba(169,112,255,0.18)',
+    primaryBorder: '#65428F',
+    success: '#75D5A6',
+    successSoft: '#173426',
+    danger: '#FF7B87',
+    dangerSoft: '#3A2024',
+    overlay: 'rgba(0,0,0,0.72)',
   },
 } as const;
 
@@ -64,14 +68,19 @@ type LiquidGlassSurfaceProps = {
   children: ReactNode;
   interactive?: boolean;
   style?: StyleProp<ViewStyle>;
+  theme?: ThemeName;
   tintColor?: string;
 };
 
-function LiquidGlassSurface({ children, interactive = false, style, tintColor = 'rgba(255,255,255,0.18)' }: LiquidGlassSurfaceProps) {
+function LiquidGlassSurface({ children, interactive = false, style, theme, tintColor }: LiquidGlassSurfaceProps) {
+  const systemColorScheme = useColorScheme();
+  const isDark = theme ? theme === 'dark' : systemColorScheme === 'dark';
+  const resolvedTintColor = tintColor ?? (isDark ? 'rgba(30,30,30,0.78)' : 'rgba(255,255,255,0.18)');
+
   if (canRenderLiquidGlass) {
-    return <GlassView glassEffectStyle="regular" isInteractive={interactive} style={style} tintColor={tintColor}>{children}</GlassView>;
+    return <GlassView glassEffectStyle="regular" isInteractive={interactive} style={style} tintColor={resolvedTintColor}>{children}</GlassView>;
   }
-  return <BlurView experimentalBlurMethod="dimezisBlurView" intensity={72} style={[styles.glassFallback, style]} tint="systemMaterialLight">{children}</BlurView>;
+  return <BlurView experimentalBlurMethod="dimezisBlurView" intensity={72} style={[styles.glassFallback, isDark && styles.glassFallbackDark, style]} tint={isDark ? 'systemMaterialDark' : 'systemMaterialLight'}>{children}</BlurView>;
 }
 
 type FormModalProps = {
@@ -120,13 +129,21 @@ function FormModal({ canSubmit, children, colors, isSubmitting, onClose, onSubmi
 
 const initialFor = (value: string) => value.trim().charAt(0).toLocaleUpperCase('tr-TR') || '?';
 const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+const themeOptions = [
+  { label: 'System', value: 'system' },
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
+] as const;
 
 export default function DashboardScreen() {
   const systemColorScheme = useColorScheme();
   const { width: screenWidth } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
   const { logout, user } = useAuth();
-  const [theme, setTheme] = useState<ThemeName>(systemColorScheme === 'dark' ? 'dark' : 'light');
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [isThemePreferenceLoaded, setIsThemePreferenceLoaded] = useState(false);
+  const systemTheme: ThemeName = systemColorScheme === 'dark' ? 'dark' : 'light';
+  const theme: ThemeName = themePreference === 'system' ? systemTheme : themePreference;
   const colors: Colors = themeColors[theme];
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -137,6 +154,7 @@ export default function DashboardScreen() {
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [areProjectsOpen, setAreProjectsOpen] = useState(true);
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
@@ -168,30 +186,30 @@ export default function DashboardScreen() {
   const isSelectedProjectCompleted = tasks.length > 0 && tasks.every((task) => task.completed);
 
   const drawerX = useSharedValue(0);
+  const drawerScrollY = useSharedValue(0);
   const gestureStartX = useSharedValue(0);
-  const drawerGesture = Gesture.Pan()
-    .activeOffsetX([-12, 12])
+  const drawerGesturesEnabled = !isSearchOpen && !isAccountMenuOpen;
+
+  const openDrawerGesture = Gesture.Pan()
+    .enabled(drawerGesturesEnabled && !isMenuOpen)
+    .hitSlop({ left: 0, width: 24 })
+    .activeOffsetX(16)
     .failOffsetY([-12, 12])
-    .onBegin(() => {
+    .averageTouches(true)
+    .enableTrackpadTwoFingerGesture(true)
+    .onStart(() => {
       gestureStartX.value = drawerX.value;
-      scheduleOnRN(setIsMenuOpen, true);
     })
     .onUpdate((event) => {
       drawerX.value = clamp(
-        gestureStartX.value + event.translationX,
+        gestureStartX.value + Math.max(0, event.translationX),
         0,
-        panelWidth
+        panelWidth,
       );
     })
-
     .onEnd((event) => {
-      const passedMiddle = drawerX.value > panelWidth / 2;
-      const swipedRightQuickly = event.velocityX > 600;
-      const swipedLeftQuickly = event.velocityX < -600;
-
-      const shouldOpen =
-        swipedRightQuickly ||
-        (!swipedLeftQuickly && passedMiddle);
+      const projectedX = drawerX.value + event.velocityX * 0.12;
+      const shouldOpen = event.velocityX > 650 || projectedX > panelWidth * 0.42;
 
       drawerX.value = withSpring(
         shouldOpen ? panelWidth : 0,
@@ -201,10 +219,45 @@ export default function DashboardScreen() {
           overshootClamping: true,
         },
         (finished) => {
-          if (finished) scheduleOnRN(setIsMenuOpen, shouldOpen);
+          if (finished && shouldOpen) scheduleOnRN(setIsMenuOpen, true);
         },
       );
     });
+
+  const closeDrawerGesture = Gesture.Pan()
+    .enabled(drawerGesturesEnabled && isMenuOpen)
+    .activeOffsetX(-16)
+    .failOffsetY([-14, 14])
+    .averageTouches(true)
+    .enableTrackpadTwoFingerGesture(true)
+    .onStart(() => {
+      gestureStartX.value = drawerX.value;
+    })
+    .onUpdate((event) => {
+      drawerX.value = clamp(
+        gestureStartX.value + Math.min(0, event.translationX),
+        0,
+        panelWidth,
+      );
+    })
+    .onEnd((event) => {
+      const projectedX = drawerX.value + event.velocityX * 0.12;
+      const shouldStayOpen = event.velocityX >= -650 && projectedX >= panelWidth * 0.58;
+
+      drawerX.value = withSpring(
+        shouldStayOpen ? panelWidth : 0,
+        {
+          damping: 24,
+          stiffness: 220,
+          overshootClamping: true,
+        },
+        (finished) => {
+          if (finished && !shouldStayOpen) scheduleOnRN(setIsMenuOpen, false);
+        },
+      );
+    });
+
+  const drawerGesture = isMenuOpen ? closeDrawerGesture : openDrawerGesture;
 
   const loadProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -235,11 +288,16 @@ export default function DashboardScreen() {
   }, []);
 
   const mainAnimatedStyle = useAnimatedStyle(() => ({
+    borderRadius: drawerX.value > 0 ? 55 : 0,
     transform: [
       {
         translateX: drawerX.value,
       },
     ],
+  }));
+
+  const mainSurfaceAnimatedStyle = useAnimatedStyle(() => ({
+    borderRadius: drawerX.value > 0 ? 55 : 0,
   }));
 
   const drawerAnimatedStyle = useAnimatedStyle(() => ({
@@ -248,6 +306,16 @@ export default function DashboardScreen() {
         scale: interpolate(drawerX.value, [0, panelWidth], [0.95, 1]),
       },
     ],
+  }));
+
+  const drawerScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      drawerScrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const drawerHeaderBlurAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: clamp(drawerScrollY.value / 24, 0, 1),
   }));
 
   // useEffect(() => {
@@ -259,6 +327,33 @@ export default function DashboardScreen() {
   //     canRenderLiquidGlass,
   //   });
   // }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreThemePreference() {
+      try {
+        const storedPreference = await themePreferenceStorage.get();
+
+        if (!isMounted) return;
+        if (storedPreference === 'system' || storedPreference === 'light' || storedPreference === 'dark') {
+          setThemePreference(storedPreference);
+        }
+      } finally {
+        if (isMounted) setIsThemePreferenceLoaded(true);
+      }
+    }
+
+    void restoreThemePreference().catch(() => undefined);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isThemePreferenceLoaded) return;
+    void themePreferenceStorage.set(themePreference).catch(() => undefined);
+  }, [isThemePreferenceLoaded, themePreference]);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -281,14 +376,14 @@ export default function DashboardScreen() {
   function openMenu() {
     setIsMenuOpen(true);
     drawerX.value = withTiming(panelWidth, {
-      duration: 500,
+      duration: 200,
       easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
     });
   }
 
   function closeMenu() {
     drawerX.value = withTiming(0, {
-      duration: 360,
+      duration: 200,
       easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic),
     }, (finished) => {
       if (finished) scheduleOnRN(setIsMenuOpen, false);
@@ -427,6 +522,7 @@ export default function DashboardScreen() {
 
   async function handleLogout() {
     if (isLoggingOut) return;
+    setIsAccountMenuOpen(false);
     try { setIsLoggingOut(true); await logout(); } finally { setIsLoggingOut(false); }
   }
 
@@ -460,25 +556,29 @@ export default function DashboardScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.appBackground }]}>
-      <GestureDetector gesture={drawerGesture}>
+    <GestureDetector gesture={drawerGesture}>
+      <View style={[styles.screen, { backgroundColor: colors.appBackground }]}>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
         <Reanimated.View
           style={[
             styles.mainMotion,
-            isMenuOpen
-              ? styles.mainMotionOpen
-              : undefined,
             mainAnimatedStyle,
           ]}>
-          <View style={[styles.mainSurface, { backgroundColor: colors.surface }, isMenuOpen ? styles.mainSurfaceOpen : undefined]}>
+          <Reanimated.View style={[styles.mainSurface, { backgroundColor: colors.surface }, mainSurfaceAnimatedStyle]}>
             <SafeAreaView style={styles.safeArea}>
-              <View style={styles.topBar}>
-                <Pressable accessibilityLabel="Open menu" onPress={openMenu} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
-                  <LiquidGlassSurface interactive style={styles.roundButtonGlass}><Menu color={colors.text} size={23} /></LiquidGlassSurface>
-                </Pressable>
-                <Text numberOfLines={1} style={[styles.dashboardTitle, { color: colors.text }]}>Dashboard</Text>
-                <Pressable accessibilityLabel="Toggle theme" onPress={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} style={({ pressed }) => [styles.smallRoundButton, pressed && styles.pressed]}>
-                  <LiquidGlassSurface interactive style={styles.roundButtonGlass}>{theme === 'light' ? <Moon color={colors.text} size={19} /> : <Sun color={colors.text} size={19} />}</LiquidGlassSurface>
+              <View pointerEvents="box-none" style={styles.topBarLayer}>
+                <View style={styles.topBarLeft}>
+                  <Pressable accessibilityLabel="Open menu" onPress={openMenu} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
+                    <LiquidGlassSurface interactive style={styles.roundButtonGlass} theme={theme}><Menu color={colors.text} size={23} /></LiquidGlassSurface>
+                  </Pressable>
+                  {/* <View style={styles.dashboardTitlePillShadow}> */}
+                  {/* <LiquidGlassSurface style={styles.dashboardTitlePill} theme={theme}> */}
+                  <Text numberOfLines={1} style={[styles.dashboardTitle, { color: colors.text }]}>Dashboard</Text>
+                  {/* </LiquidGlassSurface> */}
+                  {/* </View> */}
+                </View>
+                <Pressable accessibilityLabel="Open account menu" accessibilityState={{ expanded: isAccountMenuOpen }} onPress={() => setIsAccountMenuOpen(true)} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
+                  <LiquidGlassSurface interactive style={styles.roundButtonGlass} theme={theme}><User color={colors.text} size={23} /></LiquidGlassSurface>
                 </Pressable>
                 {/* <Pressable accessibilityLabel="Create project" onPress={() => setIsProjectModalOpen(true)} style={({ pressed }) => [styles.smallRoundButton, pressed && styles.pressed]}>
                 <LiquidGlassSurface interactive style={styles.roundButtonGlass} tintColor="rgba(79,70,229,0.32)"><Plus color={colors.primary} size={21} /></LiquidGlassSurface>
@@ -491,7 +591,14 @@ export default function DashboardScreen() {
               {projectSearchQuery.length > 0 && <Pressable accessibilityLabel="Clear search" hitSlop={8} onPress={() => setProjectSearchQuery('')}><X color={colors.secondaryText} size={18} /></Pressable>}
             </View> */}
 
-              <ScrollView contentContainerStyle={styles.mainContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Reanimated.ScrollView
+                contentContainerStyle={styles.mainContent}
+                directionalLockEnabled
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                scrollsToTop={!isMenuOpen && !isSearchOpen}
+                showsVerticalScrollIndicator={false}>
                 {projectsLoading ? (
                   <View style={styles.fullState}><ActivityIndicator color={colors.primary} /><Text style={[styles.stateText, { color: colors.secondaryText }]}>Projects loading...</Text></View>
                 ) : projectsError ? (
@@ -545,41 +652,26 @@ export default function DashboardScreen() {
                 ) : (
                   <View style={styles.fullState}><Files color={colors.secondaryText} size={38} /><Text style={[styles.stateTitle, { color: colors.text }]}>No project selected</Text><Text style={[styles.stateText, { color: colors.secondaryText }]}>Create a project to get started.</Text><Pressable onPress={() => setIsProjectModalOpen(true)} style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary }, pressed && styles.pressed]}><Plus color="#FFF" size={18} /><Text style={styles.primaryButtonText}>New Project</Text></Pressable></View>
                 )}
-              </ScrollView>
+              </Reanimated.ScrollView>
             </SafeAreaView>
             {isMenuOpen && <Pressable accessibilityLabel="Close menu" onPress={closeMenu} style={styles.mainDismissArea} />}
-          </View>
+          </Reanimated.View>
         </Reanimated.View>
-      </GestureDetector>
 
-      <View
-        pointerEvents={isMenuOpen ? 'auto' : 'none'}
-        style={[styles.drawerLayer, { backgroundColor: colors.surface }]}>
-        <Reanimated.View style={[styles.drawer, { backgroundColor: colors.surface, width: panelWidth + 80 }, drawerAnimatedStyle]}>
-          <LiquidGlassSurface style={styles.drawerGlass} tintColor={theme === 'dark' ? 'rgba(20,21,28,0.36)' : undefined}>
+        <View
+          pointerEvents={isMenuOpen ? 'auto' : 'none'}
+          style={[styles.drawerLayer, { backgroundColor: colors.drawerBackground }]}>
+          <Reanimated.View style={[styles.drawer, { backgroundColor: colors.drawerBackground, width: panelWidth + 80 }, drawerAnimatedStyle]}>
             <SafeAreaView edges={['top', 'bottom']} style={[styles.drawerSafeArea, { width: panelWidth + 32 }]}>
-              <View style={styles.drawerHeader}>
-                <Text adjustsFontSizeToFit minimumFontScale={0.76} numberOfLines={1}
-                  style={[
-                    styles.drawerTitle,
-                    { color: colors.text }
-                  ]}>
-                  Project Tracking
-                </Text>
-                <View style={styles.drawerActions}>
-                  <Pressable
-                    accessibilityLabel="Search projects"
-                    onPress={openProjectSearch}
-                    style={({ pressed }) => [
-                      styles.roundButton, pressed && styles.pressed
-                    ]}>
-                    <LiquidGlassSurface interactive style={styles.roundButtonGlass}><Search color={colors.text} size={23} /></LiquidGlassSurface>
-                  </Pressable>
-                  {/* <Pressable accessibilityLabel="Close menu" onPress={closeMenu} style={({ pressed }) => [styles.drawerRoundAction, { borderColor: colors.border }, pressed && styles.pressed]}><Menu color={colors.secondaryText} size={22} /></Pressable> */}
-                </View>
-              </View>
-              <ScrollView
+              <Reanimated.ScrollView
                 contentContainerStyle={styles.drawerContent}
+                directionalLockEnabled
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                onScroll={drawerScrollHandler}
+                scrollEventThrottle={16}
+                scrollsToTop={isMenuOpen}
                 showsVerticalScrollIndicator={false}
                 style={
                   styles.drawerScroll
@@ -620,133 +712,249 @@ export default function DashboardScreen() {
                     </>
                   )}
                 </View>}
-              </ScrollView>
-              {isMenuOpen && (
-                <Pressable
-                  accessibilityLabel="Add project"
-                  onPress={openProjectModalFromDrawer}
-                  style={({ pressed }) => [styles.drawerAddProjectButton, pressed && styles.drawerAddProjectPressed]}>
-                  <LiquidGlassSurface interactive style={[styles.drawerAddProjectGlass, { backgroundColor: colors.primary }]} tintColor={colors.primary}>
-                    <FolderPlus color="#FFFFFF" size={22} />
-                    <Text style={styles.drawerAddProjectText}>Add Project</Text>
-                  </LiquidGlassSurface>
-                </Pressable>
-              )}
-              {user && <View style={[styles.accountRow, { borderColor: colors.border }]}>
-                <View style={[styles.accountAvatar, { backgroundColor: colors.primarySoft }]}><Text style={[styles.accountAvatarText, { color: colors.primary }]}>{initialFor(user.displayName)}</Text></View>
-                <View style={styles.accountDetails}><Text numberOfLines={1} style={[styles.accountName, { color: colors.text }]}>{user.displayName}</Text><Text numberOfLines={1} style={[styles.accountEmail, { color: colors.secondaryText }]}>{user.email}</Text></View>
-                <Pressable accessibilityLabel="Sign out" disabled={isLoggingOut} onPress={() => void handleLogout()} style={({ pressed }) => [styles.accountLogout, pressed && styles.pressed]}>{isLoggingOut ? <ActivityIndicator color={colors.danger} size="small" /> : <LogOut color={colors.danger} size={19} />}</Pressable>
-              </View>}
-            </SafeAreaView>
-          </LiquidGlassSurface>
-        </Reanimated.View>
-      </View>
+              </Reanimated.ScrollView>
+              <View pointerEvents="box-none"
+                style={[
+                  styles.drawerHeaderLayer,
+                  {
+                    height: safeAreaInsets.top + 126,
+                    paddingTop: safeAreaInsets.top + 62,
+                    top: -safeAreaInsets.top,
+                  },
+                ]}>
 
-      {
-        isSearchOpen && (
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.searchOverlay}>
-            <Animated.View
-              pointerEvents="none"
-              style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.appBackground, opacity: searchMorph }]}
-            />
+                <Reanimated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.drawerHeaderMaterial,
+                    drawerHeaderBlurAnimatedStyle
+                  ]}>
+                  <BlurView
+                    intensity={25}
+                    style={StyleSheet.absoluteFillObject}
+                    tint={
+                      theme === 'dark'
+                        ? 'systemUltraThinMaterialDark'
+                        : 'systemUltraThinMaterialLight'
+                    }
+                  />
+                </Reanimated.View>
 
-            <Animated.View
-              style={[
-                styles.morphSearchBar,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  borderRadius: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [24, 28] }),
-                  height: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [48, 56] }),
-                  left: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [searchStartLeft, 16] }),
-                  top: safeAreaInsets.top + 7,
-                  width: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [48, searchTargetWidth] }),
-                },
-              ]}>
-              <Search color={colors.text} size={24} />
-              <Animated.View style={[styles.morphSearchInputWrap, { opacity: searchMorph.interpolate({ inputRange: [0, 0.48, 1], outputRange: [0, 0, 1] }) }]}>
-                <TextInput
-                  ref={projectSearchInputRef}
-                  accessibilityLabel="Search projects"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  onChangeText={setProjectSearchQuery}
-                  placeholder="Search"
-                  placeholderTextColor={colors.secondaryText}
-                  returnKeyType="search"
-                  selectionColor={colors.primary}
-                  style={[styles.morphSearchInput, { color: colors.text }]}
-                  value={projectSearchQuery}
-                />
-              </Animated.View>
-            </Animated.View>
+                <View style={styles.drawerHeaderContent}>
+                  <Text
+                    // adjustsFontSizeToFit 
+                    // minimumFontScale={0.76}
+                    numberOfLines={1}
+                    style={[styles.drawerTitle, { color: colors.text }]}>
+                    Project Tracking
+                  </Text>
 
-            <Animated.View
-              style={[
-                styles.searchCloseWrap,
-                {
-                  opacity: searchMorph.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] }),
-                  top: safeAreaInsets.top + 7,
-                  transform: [{ scale: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
-                },
-              ]}>
-              <Pressable accessibilityLabel="Close search" onPress={() => closeProjectSearch(true)} style={({ pressed }) => [styles.searchCloseButton, pressed && styles.pressed]}>
-                <LiquidGlassSurface interactive style={styles.roundButtonGlass}><X color={colors.text} size={29} /></LiquidGlassSurface>
+                  <Pressable
+                    accessibilityLabel="Search projects"
+                    onPress={openProjectSearch}
+                    style={({ pressed }) => [
+                      styles.roundButton, pressed && styles.pressed
+                    ]}>
+                    <LiquidGlassSurface
+                      interactive
+                      style={styles.roundButtonGlass}
+                      theme={theme}>
+                      <Search color={colors.text} size={23} />
+                    </LiquidGlassSurface>
+                  </Pressable>
+                </View>
+              </View>
+              <Pressable
+                accessibilityLabel="Add project"
+                onPress={openProjectModalFromDrawer}
+                style={({ pressed }) => [styles.drawerAddProjectButton, pressed && styles.drawerAddProjectPressed]}>
+                <LiquidGlassSurface interactive style={[styles.drawerAddProjectGlass, { backgroundColor: colors.primary }]} theme={theme} tintColor={colors.primary}>
+                  <FolderPlus color="#FFFFFF" size={22} />
+                  <Text style={styles.drawerAddProjectText}>Add Project</Text>
+                </LiquidGlassSurface>
               </Pressable>
-            </Animated.View>
+            </SafeAreaView>
+          </Reanimated.View>
+        </View>
 
-            <Animated.View
-              style={[
-                styles.searchResults,
-                {
-                  opacity: searchMorph.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0, 0, 1] }),
-                  paddingTop: safeAreaInsets.top + 84,
-                  transform: [{ translateY: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
-                },
-              ]}>
-              <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                {projectsLoading ? (
-                  <View style={styles.searchState}><ActivityIndicator color={colors.primary} /></View>
-                ) : filteredProjects.length === 0 ? (
-                  <View style={styles.searchState}>
-                    <Search color={colors.secondaryText} size={30} />
-                    <Text style={[styles.searchEmptyTitle, { color: colors.text }]}>No projects found</Text>
-                    <Text style={[styles.searchEmptyText, { color: colors.secondaryText }]}>Try searching with another project name.</Text>
-                  </View>
-                ) : filteredProjects.map((project) => {
-                  const selected = project.id === selectedProjectId;
-                  return (
-                    <Pressable
-                      accessibilityState={{ selected }}
-                      key={project.id}
-                      onPress={() => selectSearchProject(project.id)}
-                      style={({ pressed }) => [styles.searchResultRow, pressed && styles.searchResultPressed]}>
-                      {selected ? <Files color={colors.primary} size={25} /> : <Folder color={colors.text} size={25} />}
-                      <View style={styles.searchResultCopy}>
-                        <Text numberOfLines={1} style={[styles.searchResultName, { color: colors.text }]}>{project.name}</Text>
-                        {!!project.description && <Text numberOfLines={1} style={[styles.searchResultDescription, { color: colors.secondaryText }]}>{project.description}</Text>}
-                      </View>
+        {
+          isSearchOpen && (
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.searchOverlay}>
+              <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.appBackground, opacity: searchMorph }]}
+              />
+
+              <Animated.View
+                style={[
+                  styles.morphSearchBar,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    borderRadius: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [24, 28] }),
+                    height: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [48, 56] }),
+                    left: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [searchStartLeft, 16] }),
+                    top: safeAreaInsets.top + 7,
+                    width: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [48, searchTargetWidth] }),
+                  },
+                ]}>
+                <Search color={colors.text} size={24} />
+                <Animated.View style={[styles.morphSearchInputWrap, { opacity: searchMorph.interpolate({ inputRange: [0, 0.48, 1], outputRange: [0, 0, 1] }) }]}>
+                  <TextInput
+                    ref={projectSearchInputRef}
+                    accessibilityLabel="Search projects"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    clearButtonMode="while-editing"
+                    onChangeText={setProjectSearchQuery}
+                    placeholder="Search"
+                    placeholderTextColor={colors.secondaryText}
+                    returnKeyType="search"
+                    selectionColor={colors.primary}
+                    style={[styles.morphSearchInput, { color: colors.text }]}
+                    value={projectSearchQuery}
+                  />
+                </Animated.View>
+              </Animated.View>
+
+              <Animated.View
+                style={[
+                  styles.searchCloseWrap,
+                  {
+                    opacity: searchMorph.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] }),
+                    top: safeAreaInsets.top + 7,
+                    transform: [{ scale: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
+                  },
+                ]}>
+                <Pressable accessibilityLabel="Close search" onPress={() => closeProjectSearch(true)} style={({ pressed }) => [styles.searchCloseButton, pressed && styles.pressed]}>
+                  <LiquidGlassSurface interactive style={styles.roundButtonGlass} theme={theme}><X color={colors.text} size={29} /></LiquidGlassSurface>
+                </Pressable>
+              </Animated.View>
+
+              <Animated.View
+                style={[
+                  styles.searchResults,
+                  {
+                    opacity: searchMorph.interpolate({ inputRange: [0, 0.62, 1], outputRange: [0, 0, 1] }),
+                    paddingTop: safeAreaInsets.top + 84,
+                    transform: [{ translateY: searchMorph.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+                  },
+                ]}>
+                <ScrollView
+                  directionalLockEnabled
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
+                  scrollsToTop
+                  showsVerticalScrollIndicator={false}>
+                  {projectsLoading ? (
+                    <View style={styles.searchState}><ActivityIndicator color={colors.primary} /></View>
+                  ) : filteredProjects.length === 0 ? (
+                    <View style={styles.searchState}>
+                      <Search color={colors.secondaryText} size={30} />
+                      <Text style={[styles.searchEmptyTitle, { color: colors.text }]}>No projects found</Text>
+                      <Text style={[styles.searchEmptyText, { color: colors.secondaryText }]}>Try searching with another project name.</Text>
+                    </View>
+                  ) : filteredProjects.map((project) => {
+                    const selected = project.id === selectedProjectId;
+                    return (
+                      <Pressable
+                        accessibilityState={{ selected }}
+                        key={project.id}
+                        onPress={() => selectSearchProject(project.id)}
+                        style={({ pressed }) => [styles.searchResultRow, pressed && styles.searchResultPressed]}>
+                        {selected ? <Files color={colors.primary} size={25} /> : <Folder color={colors.text} size={25} />}
+                        <View style={styles.searchResultCopy}>
+                          <Text numberOfLines={1} style={[styles.searchResultName, { color: colors.text }]}>{project.name}</Text>
+                          {!!project.description && <Text numberOfLines={1} style={[styles.searchResultDescription, { color: colors.secondaryText }]}>{project.description}</Text>}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </Animated.View>
+            </KeyboardAvoidingView>
+          )
+        }
+
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setIsAccountMenuOpen(false)}
+          presentationStyle="overFullScreen"
+          statusBarTranslucent
+          transparent
+          visible={isAccountMenuOpen}>
+          <View style={styles.accountMenuLayer}>
+            <Pressable
+              accessibilityLabel="Close account menu"
+              onPress={() => setIsAccountMenuOpen(false)}
+              style={[styles.accountMenuBackdrop, { backgroundColor: colors.overlay }]} />
+            <SafeAreaView edges={['top']} pointerEvents="box-none" style={styles.accountMenuSafeArea}>
+              {user && (
+                <View style={[styles.accountMenuCard, { backgroundColor: colors.card, borderColor: colors.border, width: Math.min(screenWidth - 32, 360) }]}>
+                  <View style={styles.accountMenuHeader}>
+                    <View style={[styles.accountMenuAvatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
+                      <Text style={[styles.accountMenuAvatarText, { color: colors.primary }]}>{initialFor(user.displayName)}</Text>
+                    </View>
+                    <View style={styles.accountMenuIdentity}>
+                      <Text numberOfLines={1} style={[styles.accountMenuName, { color: colors.text }]}>{user.displayName}</Text>
+                      <Text numberOfLines={1} style={[styles.accountMenuEmail, { color: colors.secondaryText }]}>{user.email}</Text>
+                    </View>
+                    <Pressable accessibilityLabel="Close account menu" onPress={() => setIsAccountMenuOpen(false)} style={({ pressed }) => [styles.accountMenuClose, { backgroundColor: colors.cardMuted }, pressed && styles.pressed]}>
+                      <X color={colors.secondaryText} size={19} />
                     </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        )
-      }
+                  </View>
 
-      <FormModal canSubmit={newProjectName.trim().length > 0} colors={colors} isSubmitting={isProjectCreating} onClose={closeProjectModal} onSubmit={() => void handleCreateProject()} submitLabel="Create Project" title="New Project" visible={isProjectModalOpen}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>Project Name</Text>
-        <TextInput autoFocus maxLength={120} onChangeText={setNewProjectName} placeholder="Project name" placeholderTextColor={colors.secondaryText} style={[styles.modalInput, { backgroundColor: colors.appBackground, borderColor: colors.border, color: colors.text }]} value={newProjectName} />
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>Description</Text>
-        <TextInput maxLength={2000} multiline onChangeText={setNewProjectDescription} placeholder="Optional description" placeholderTextColor={colors.secondaryText} style={[styles.modalInput, styles.modalTextarea, { backgroundColor: colors.appBackground, borderColor: colors.border, color: colors.text }]} textAlignVertical="top" value={newProjectDescription} />
-      </FormModal>
-      <FormModal canSubmit={newTaskTitle.trim().length > 0 && selectedProjectId !== null} colors={colors} isSubmitting={isTaskCreating} onClose={closeTaskModal} onSubmit={() => void handleCreateTask()} submitLabel="Create Task" title="New Task" visible={isTaskModalOpen}>
-        <Text style={[styles.fieldLabel, { color: colors.text }]}>Task Title</Text>
-        <TextInput autoFocus maxLength={300} onChangeText={setNewTaskTitle} onSubmitEditing={() => void handleCreateTask()} placeholder="Task title" placeholderTextColor={colors.secondaryText} returnKeyType="done" style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newTaskTitle} />
-      </FormModal>
-    </View >
+                  <View style={[styles.accountMenuDivider, { backgroundColor: colors.border }]} />
+
+                  <Text style={[styles.accountMenuSectionTitle, { color: colors.secondaryText }]}>APPEARANCE</Text>
+                  <View style={[styles.themeSelector, { backgroundColor: colors.cardMuted }]}>
+                    {themeOptions.map((option) => {
+                      const selected = themePreference === option.value;
+                      return (
+                        <Pressable
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: selected }}
+                          key={option.value}
+                          onPress={() => setThemePreference(option.value)}
+                          style={({ pressed }) => [
+                            styles.themeOption,
+                            selected && { backgroundColor: colors.card, borderColor: colors.primaryBorder },
+                            pressed && styles.pressed,
+                          ]}>
+                          {option.value === 'system' ? <Smartphone color={selected ? colors.primary : colors.secondaryText} size={18} /> : option.value === 'light' ? <Sun color={selected ? colors.primary : colors.secondaryText} size={18} /> : <Moon color={selected ? colors.primary : colors.secondaryText} size={18} />}
+                          <Text style={[styles.themeOptionText, { color: selected ? colors.primary : colors.secondaryText }]}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Pressable
+                    accessibilityLabel="Log out"
+                    disabled={isLoggingOut}
+                    onPress={() => void handleLogout()}
+                    style={({ pressed }) => [styles.accountMenuLogout, { backgroundColor: colors.dangerSoft }, pressed && styles.pressed]}>
+                    {isLoggingOut ? <ActivityIndicator color={colors.danger} size="small" /> : <LogOut color={colors.danger} size={20} />}
+                    <Text style={[styles.accountMenuLogoutText, { color: colors.danger }]}>{isLoggingOut ? 'Logging out...' : 'Log Out'}</Text>
+                  </Pressable>
+                </View>
+              )}
+            </SafeAreaView>
+          </View>
+        </Modal>
+
+        <FormModal canSubmit={newProjectName.trim().length > 0} colors={colors} isSubmitting={isProjectCreating} onClose={closeProjectModal} onSubmit={() => void handleCreateProject()} submitLabel="Create Project" title="New Project" visible={isProjectModalOpen}>
+          <Text style={[styles.fieldLabel, { color: colors.text }]}>Project Name</Text>
+          <TextInput autoFocus maxLength={120} onChangeText={setNewProjectName} placeholder="Project name" placeholderTextColor={colors.secondaryText} style={[styles.modalInput, { backgroundColor: colors.appBackground, borderColor: colors.border, color: colors.text }]} value={newProjectName} />
+          <Text style={[styles.fieldLabel, { color: colors.text }]}>Description</Text>
+          <TextInput maxLength={2000} multiline onChangeText={setNewProjectDescription} placeholder="Optional description" placeholderTextColor={colors.secondaryText} style={[styles.modalInput, styles.modalTextarea, { backgroundColor: colors.appBackground, borderColor: colors.border, color: colors.text }]} textAlignVertical="top" value={newProjectDescription} />
+        </FormModal>
+        <FormModal canSubmit={newTaskTitle.trim().length > 0 && selectedProjectId !== null} colors={colors} isSubmitting={isTaskCreating} onClose={closeTaskModal} onSubmit={() => void handleCreateTask()} submitLabel="Create Task" title="New Task" visible={isTaskModalOpen}>
+          <Text style={[styles.fieldLabel, { color: colors.text }]}>Task Title</Text>
+          <TextInput autoFocus maxLength={300} onChangeText={setNewTaskTitle} onSubmitEditing={() => void handleCreateTask()} placeholder="Task title" placeholderTextColor={colors.secondaryText} returnKeyType="done" style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newTaskTitle} />
+        </FormModal>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -756,19 +964,16 @@ const styles = StyleSheet.create({
   },
   mainMotion: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10
-  },
-  mainMotionOpen: {
+    zIndex: 10,
     borderRadius: 55,
     shadowColor: '#0F172A',
     shadowOffset: { width: -18, height: 0 },
     shadowOpacity: 0.20,
     shadowRadius: 36,
+    elevation: 16,
   },
   mainSurface: {
-    flex: 1
-  },
-  mainSurfaceOpen: {
+    flex: 1,
     borderRadius: 55,
     overflow: 'hidden'
   },
@@ -781,22 +986,59 @@ const styles = StyleSheet.create({
   },
   topBar: {
     minHeight: 62,
+  },
+  topBarLayer: {
+    position: 'absolute',
+    top: 62,
+    left: 16,
+    right: 16,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    justifyContent: 'space-between'
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
+  dashboardTitlePillShadow: {
+    minWidth: 0,
+    height: 48,
+    flex: 1,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 8
+  },
+  dashboardTitlePill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
+    borderRadius: 24,
+    overflow: 'hidden'
   },
   dashboardTitle: {
     minWidth: 0,
-    flex: 1,
+    maxWidth: '100%',
     fontSize: 25,
     fontWeight: '800',
-    letterSpacing: -0.7
+    letterSpacing: -0.5,
+    textAlign: 'center'
   },
   roundButton: {
     width: 48,
     height: 48,
-    borderRadius: 24
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 8
   },
   smallRoundButton: {
     width: 44,
@@ -814,6 +1056,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.75)',
     backgroundColor: 'rgba(248,249,252,0.76)'
+  },
+  glassFallbackDark: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(32,32,32,0.82)'
   },
   pressed: {
     opacity: 0.72,
@@ -932,7 +1178,8 @@ const styles = StyleSheet.create({
   mainContent: {
     flexGrow: 1,
     gap: 18,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 92,
     paddingBottom: 42
   },
   fullState: {
@@ -1169,19 +1416,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingRight: 50,
   },
-  drawerHeader: {
-    minHeight: 62,
+  drawerHeaderLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    justifyContent: 'space-between',
+    paddingLeft: 18,
+    paddingRight: 50,
+  },
+  drawerHeaderMaterial: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  drawerHeaderContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10
+    gap: 10,
   },
-  drawerTitle: {
+  drawerTitlePillShadow: {
     minWidth: 0,
     flex: 1,
-    fontSize: 25,
-    fontWeight: '800',
-    letterSpacing: -0.75
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8
+  },
+  drawerTitlePill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    borderRadius: 24,
+    overflow: 'hidden'
+  },
+  drawerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    letterSpacing: -0.45,
+    textAlign: 'center'
   },
   drawerActions: {
     flexDirection: 'row',
@@ -1200,7 +1479,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   drawerContent: {
-    paddingBottom: 20,
+    paddingTop: 76,
+    paddingBottom: 104,
   },
   drawerSection: {
     gap: 6,
@@ -1310,10 +1590,12 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   drawerAddProjectButton: {
+    position: 'absolute',
+    left: 26,
+    bottom: 18,
+    zIndex: 20,
     width: 174,
     height: 56,
-    marginLeft: 8,
-    marginBottom: 12,
     borderRadius: 28,
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 9 },
@@ -1340,47 +1622,109 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.25
   },
-  accountRow: {
-    minHeight: 68,
+  accountMenuLayer: {
+    flex: 1
+  },
+  accountMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject
+  },
+  accountMenuSafeArea: {
+    flex: 1,
+    alignItems: 'flex-end',
+    paddingHorizontal: 16
+  },
+  accountMenuCard: {
+    gap: 16,
+    marginTop: 8,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
+    shadowRadius: 30,
+    elevation: 18
+  },
+  accountMenuHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
-    padding: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.14)'
+    gap: 12
   },
-  accountAvatar: {
-    width: 38,
-    height: 38,
+  accountMenuAvatar: {
+    width: 50,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12
+    borderWidth: 1,
+    borderRadius: 16
   },
-  accountAvatarText: {
-    fontSize: 16,
+  accountMenuAvatarText: {
+    fontSize: 20,
     fontWeight: '800'
   },
-  accountDetails: {
+  accountMenuIdentity: {
     minWidth: 0,
     flex: 1,
-    gap: 2
+    gap: 3
   },
-  accountName: {
+  accountMenuName: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3
+  },
+  accountMenuEmail: {
     fontSize: 13,
-    fontWeight: '700'
-  },
-  accountEmail: {
-    fontSize: 11,
     fontWeight: '500'
   },
-  accountLogout: {
+  accountMenuClose: {
     width: 38,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12
+  },
+  accountMenuDivider: {
+    height: StyleSheet.hairlineWidth
+  },
+  accountMenuSectionTitle: {
+    marginBottom: -7,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.9
+  },
+  themeSelector: {
+    flexDirection: 'row',
+    gap: 5,
+    padding: 5,
+    borderRadius: 16
+  },
+  themeOption: {
+    minWidth: 0,
+    minHeight: 48,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: 12
+  },
+  themeOptionText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  accountMenuLogout: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    borderRadius: 15
+  },
+  accountMenuLogoutText: {
+    fontSize: 15,
+    fontWeight: '800'
   },
   modalLayer: {
     flex: 1,

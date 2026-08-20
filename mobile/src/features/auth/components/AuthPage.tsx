@@ -172,7 +172,10 @@ export function AuthPage({ mode }: AuthPageProps) {
           style={styles.keyboardView}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
+            directionalLockEnabled
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
             showsVerticalScrollIndicator={false}>
             <View style={styles.content}>
               <View style={styles.header}>
