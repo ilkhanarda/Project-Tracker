@@ -1,123 +1,162 @@
-import { Hono } from "hono";
-import { db } from "../db/index.js";
-
-import { projectsTable } from "../db/schema.js";
-import { eq } from "drizzle-orm";
-
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { and, eq } from "drizzle-orm";
+import { Hono } from "hono";
+import { z } from "zod";
 
-const projects = new Hono();
+import { db } from "../db/index.js";
+import { projectsTable } from "../db/schema.js";
+import type { AppEnv } from "../lib/session.js";
+import { requireAuth } from "../middleware/auth.js";
+
+const projects = new Hono<AppEnv>();
 
 const createProjectSchema = z.object({
-  name: z.string().trim().min(1, "Name is required" ),
-  description: z.string().trim().optional(),
+  name: z.string().trim().min(1, "Name is required").max(120),
+  description: z.string().trim().max(2_000).optional(),
+  pinned: z.boolean().optional(),
 });
 
-const updateProjectSchema = createProjectSchema.partial();
+const updateProjectSchema = createProjectSchema
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field is required",
+  });
 
-projects.get("/", (c) => {
-    const result = db
+function parseProjectId(rawId: string) {
+  const id = Number(rawId);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+projects.use("*", requireAuth);
+
+projects.get("/", async (c) => {
+  const user = c.get("user");
+  const result = await db
     .select()
     .from(projectsTable)
-    .all();
+    .where(eq(projectsTable.userId, user.id));
 
   return c.json(result);
 });
 
-projects.get("/:id", (c) => {
-  const id = Number(c.req.param("id"));
+projects.get("/:id", async (c) => {
+  const id = parseProjectId(c.req.param("id"));
+  const user = c.get("user");
 
-  const result = db
+  if (id === null) {
+    return c.json({ error: "Invalid project id" }, 400);
+  }
+
+  const [result] = await db
     .select()
     .from(projectsTable)
-    .where(eq(projectsTable.id, id))
-    .get();
+    .where(
+      and(
+        eq(projectsTable.id, id),
+        eq(projectsTable.userId, user.id),
+      ),
+    )
+    .limit(1);
 
   if (!result) {
-    return c.text("Project not found", 404);
+    return c.json({ error: "Project not found" }, 404);
   }
 
   return c.json(result);
 });
 
-
 projects.post("/", zValidator("json", createProjectSchema), async (c) => {
   const body = c.req.valid("json");
+  const user = c.get("user");
 
-  const result = db
+  const [result] = await db
     .insert(projectsTable)
     .values({
+      userId: user.id,
       name: body.name,
       description: body.description,
+      pinned: body.pinned,
     })
-    .returning()
-    .get();
+    .returning();
+
+  if (!result) {
+    throw new Error("Project could not be created");
+  }
 
   return c.json(result, 201);
 });
 
 projects.patch("/:id", zValidator("json", updateProjectSchema), async (c) => {
-  const id = Number(c.req.param("id"));
+  const id = parseProjectId(c.req.param("id"));
   const body = c.req.valid("json");
+  const user = c.get("user");
 
-const currentProject = db
-      .select()
-      .from(projectsTable)
-      .where(eq(projectsTable.id, id))
-      .get();
-
-    if (!currentProject) {
-      return c.text("Project not found", 404);
-    }
-
-    const sameName =
-      body.name === undefined || body.name === currentProject.name;
-
-    const sameDescription =
-      body.description === undefined ||
-      body.description === currentProject.description;
-
-    if (sameName && sameDescription) {
-      return c.json(
-        {
-          message: "No changes to update",
-        },
-        200
-      );
-    }
-
-    const updatedProject = db
-      .update(projectsTable)
-      .set(body)
-      .where(eq(projectsTable.id, id))
-      .returning()
-      .get();
-
-    return c.json(updatedProject);
-});
-
-projects.delete("/:id", (c) => {
-  const id = Number(c.req.param("id"));
-
-  if (!Number.isInteger(id) || id <= 0) {
+  if (id === null) {
     return c.json({ error: "Invalid project id" }, 400);
   }
 
-  const result = db
-    .delete(projectsTable)
-    .where(eq(projectsTable.id, id))
-    .returning()
-    .get();
+  const ownershipFilter = and(
+    eq(projectsTable.id, id),
+    eq(projectsTable.userId, user.id),
+  );
 
-  if (!result) {
-    return c.text("Project not found", 404);
+  const [currentProject] = await db
+    .select()
+    .from(projectsTable)
+    .where(ownershipFilter)
+    .limit(1);
+
+  if (!currentProject) {
+    return c.json({ error: "Project not found" }, 404);
   }
 
-  return c.json({
-    message: "Project deleted",
-    id,
-  });
+  const sameName = body.name === undefined || body.name === currentProject.name;
+  const sameDescription =
+    body.description === undefined ||
+    body.description === currentProject.description;
+  const samePinned =
+    body.pinned === undefined || body.pinned === currentProject.pinned;
+
+  if (sameName && sameDescription && samePinned) {
+    return c.json(currentProject);
+  }
+
+  const [updatedProject] = await db
+    .update(projectsTable)
+    .set(body)
+    .where(ownershipFilter)
+    .returning();
+
+  if (!updatedProject) {
+    return c.json({ error: "Project not found" }, 404);
+  }
+
+  return c.json(updatedProject);
+});
+
+projects.delete("/:id", async (c) => {
+  const id = parseProjectId(c.req.param("id"));
+  const user = c.get("user");
+
+  if (id === null) {
+    return c.json({ error: "Invalid project id" }, 400);
+  }
+
+  const [result] = await db
+    .delete(projectsTable)
+    .where(
+      and(
+        eq(projectsTable.id, id),
+        eq(projectsTable.userId, user.id),
+      ),
+    )
+    .returning({ id: projectsTable.id });
+
+  if (!result) {
+    return c.json({ error: "Project not found" }, 404);
+  }
+
+  return c.json({ message: "Project deleted", id: result.id });
 });
 
 export default projects;

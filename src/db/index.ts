@@ -1,12 +1,14 @@
 import "dotenv/config";
 
-import { DatabaseSync } from "node:sqlite";
-import { drizzle } from "drizzle-orm/node-sqlite";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 
-const sqlite = new DatabaseSync(
-  process.env.DB_FILE_NAME!
-);
+const databaseUrl = process.env.DATABASE_URL;
 
-export const db = drizzle({
-  client: sqlite,
-});
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required to connect to Neon PostgreSQL");
+}
+
+const sql = neon(databaseUrl);
+
+export const db = drizzle({ client: sql });

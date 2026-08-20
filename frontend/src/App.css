@@ -174,6 +174,107 @@
     background-color: var(--border-subtle);
 }
 
+.sidebarAccount {
+    display: grid;
+    gap: 16px;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.accountRow {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 11px;
+    padding: 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: var(--sidebar-surface);
+}
+
+.accountAvatar {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--selected-border);
+    border-radius: 12px;
+    background: var(--selected-project);
+    color: var(--primary-bright);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.accountDetails {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 1px;
+    text-align: left;
+}
+
+.accountDetails strong,
+.accountEmail {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.accountDetails strong {
+    color: var(--sidebar-text);
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.accountLabel {
+    color: var(--sidebar-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.accountEmail {
+    color: var(--sidebar-muted);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.logoutButton {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--sidebar-muted);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.logoutButton:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.logoutButton:focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 2px;
+}
+
+.logoutButton:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
 .projectsTitle {
     display: flex;
     flex-direction: row;
@@ -306,8 +407,16 @@
 .sidePanel.collapsed .brand,
 .sidePanel.collapsed .sidebarLabel,
 .sidePanel.collapsed .projectsActions,
-.sidePanel.collapsed .project-name {
+.sidePanel.collapsed .project-name,
+.sidePanel.collapsed .accountDetails,
+.sidePanel.collapsed .logoutButton {
     display: none;
+}
+
+.sidePanel.collapsed .accountRow {
+    justify-content: center;
+    padding: 8px 0;
+    border-color: transparent;
 }
 
 .sidePanel.collapsed .projectsTitle,

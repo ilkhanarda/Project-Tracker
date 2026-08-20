@@ -1,123 +1,121 @@
-import { Hono } from "hono";
-import { db } from "../db/index.js";
-
-import { projectsTable, tasksTable } from "../db/schema.js";
-import { eq, and } from "drizzle-orm";
-
-
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { and, eq } from "drizzle-orm";
+import { Hono } from "hono";
+import { z } from "zod";
 
+import { db } from "../db/index.js";
+import { projectsTable, tasksTable } from "../db/schema.js";
+import type { AppEnv } from "../lib/session.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const createTaskSchema = z.object({
-  title: z.string().trim().min(1, "Title is required"),
+  title: z.string().trim().min(1, "Title is required").max(300),
   completed: z.boolean().optional(),
 });
 
 const updateTaskSchema = createTaskSchema
   .partial()
-  .refine(
-    (body) => Object.keys(body).length > 0,
-    {
-      message: "At least one field is required",
-    }
-  );
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field is required",
+  });
 
-export const projectTasks = new Hono();
+export const projectTasks = new Hono<AppEnv>();
 
-projectTasks.get("/:projectId/tasks", (c) => {
-  const projectId = Number(c.req.param("projectId"));
-    
-  if (!Number.isInteger(projectId) || projectId <= 0) {
-    return c.json({ error: "Invalid project id" }, 400);
-  } 
+function parsePositiveId(rawId: string) {
+  const id = Number(rawId);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
-  const project = db
-    .select()
+async function userOwnsProject(projectId: number, userId: number) {
+  const [project] = await db
+    .select({ id: projectsTable.id })
     .from(projectsTable)
-    .where(eq(projectsTable.id, projectId))
-    .get();
+    .where(
+      and(
+        eq(projectsTable.id, projectId),
+        eq(projectsTable.userId, userId),
+      ),
+    )
+    .limit(1);
 
-  if (!project) {
+  return project;
+}
+
+projectTasks.use("*", requireAuth);
+
+projectTasks.get("/:projectId/tasks", async (c) => {
+  const projectId = parsePositiveId(c.req.param("projectId"));
+  const user = c.get("user");
+
+  if (projectId === null) {
+    return c.json({ error: "Invalid project id" }, 400);
+  }
+
+  if (!(await userOwnsProject(projectId, user.id))) {
     return c.json({ error: "Project not found" }, 404);
   }
 
-  const tasks = db
+  const tasks = await db
     .select()
     .from(tasksTable)
-    .where(eq(tasksTable.projectId, projectId))
-    .all();
+    .where(eq(tasksTable.projectId, projectId));
 
   return c.json(tasks);
 });
 
 projectTasks.post(
-    "/:projectId/tasks",
-    zValidator("json", createTaskSchema),
-    (c) => {
-      const projectId = Number(c.req.param("projectId"));
-      const body = c.req.valid("json");
+  "/:projectId/tasks",
+  zValidator("json", createTaskSchema),
+  async (c) => {
+    const projectId = parsePositiveId(c.req.param("projectId"));
+    const body = c.req.valid("json");
+    const user = c.get("user");
 
-      if (!Number.isInteger(projectId) || projectId <= 0) {
-        return c.json({ error: "Invalid project id" }, 400);
-      }
+    if (projectId === null) {
+      return c.json({ error: "Invalid project id" }, 400);
+    }
 
-      const project = db
-        .select()
-        .from(projectsTable)
-        .where(eq(projectsTable.id, projectId))
-        .get();
+    if (!(await userOwnsProject(projectId, user.id))) {
+      return c.json({ error: "Project not found" }, 404);
+    }
 
-      if (!project) {
-        return c.json({ error: "Project not found" }, 404);
-      }
+    const [task] = await db
+      .insert(tasksTable)
+      .values({
+        title: body.title,
+        completed: body.completed,
+        projectId,
+      })
+      .returning();
 
-      const task = db
-        .insert(tasksTable)
-        .values({
-          title: body.title,
-          completed: body.completed,
-          projectId,
-        })
-        .returning()
-        .get();
+    if (!task) {
+      throw new Error("Task could not be created");
+    }
 
-      return c.json(task, 201);
-  }
+    return c.json(task, 201);
+  },
 );
 
-projectTasks.get("/:projectId/tasks/:taskId", (c) => {
-  const projectId = Number(c.req.param("projectId"));
-  const taskId = Number(c.req.param("taskId"));
+projectTasks.get("/:projectId/tasks/:taskId", async (c) => {
+  const projectId = parsePositiveId(c.req.param("projectId"));
+  const taskId = parsePositiveId(c.req.param("taskId"));
+  const user = c.get("user");
 
-  if (!Number.isInteger(projectId) || projectId <= 0) {
-    return c.json({ error: "Invalid project id" }, 400);
+  if (projectId === null || taskId === null) {
+    return c.json({ error: "Invalid project or task id" }, 400);
   }
 
-  if (!Number.isInteger(taskId) || taskId <= 0) {
-    return c.json({ error: "Invalid task id" }, 400);
-  }
-
-  const project = db
-    .select()
-    .from(projectsTable)
-    .where(eq(projectsTable.id, projectId))
-    .get();
-
-  if (!project) {
+  if (!(await userOwnsProject(projectId, user.id))) {
     return c.json({ error: "Project not found" }, 404);
   }
 
-  const task = db
+  const [task] = await db
     .select()
     .from(tasksTable)
     .where(
-        and(
-            eq(tasksTable.id, taskId),
-            eq(tasksTable.projectId, projectId)
-        )
+      and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)),
     )
-    .get();
+    .limit(1);
 
   if (!task) {
     return c.json({ error: "Task not found" }, 404);
@@ -126,83 +124,62 @@ projectTasks.get("/:projectId/tasks/:taskId", (c) => {
   return c.json(task);
 });
 
-projectTasks.patch("/:projectId/tasks/:taskId", zValidator("json", updateTaskSchema), (c) => {
-  const taskId = Number(c.req.param("taskId"));
-  const projectId = Number(c.req.param("projectId"));
-  const body = c.req.valid("json");
+projectTasks.patch(
+  "/:projectId/tasks/:taskId",
+  zValidator("json", updateTaskSchema),
+  async (c) => {
+    const projectId = parsePositiveId(c.req.param("projectId"));
+    const taskId = parsePositiveId(c.req.param("taskId"));
+    const body = c.req.valid("json");
+    const user = c.get("user");
 
-  if (!Number.isInteger(taskId) || taskId <= 0) {
-    return c.json({ error: "Invalid task id" }, 400);
-  }
-    if (!Number.isInteger(projectId) || projectId <= 0) {
-    return c.json({ error: "Invalid project id" }, 400);
+    if (projectId === null || taskId === null) {
+      return c.json({ error: "Invalid project or task id" }, 400);
+    }
+
+    if (!(await userOwnsProject(projectId, user.id))) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const [updatedTask] = await db
+      .update(tasksTable)
+      .set(body)
+      .where(
+        and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)),
+      )
+      .returning();
+
+    if (!updatedTask) {
+      return c.json({ error: "Task not found" }, 404);
+    }
+
+    return c.json(updatedTask);
+  },
+);
+
+projectTasks.delete("/:projectId/tasks/:taskId", async (c) => {
+  const projectId = parsePositiveId(c.req.param("projectId"));
+  const taskId = parsePositiveId(c.req.param("taskId"));
+  const user = c.get("user");
+
+  if (projectId === null || taskId === null) {
+    return c.json({ error: "Invalid project or task id" }, 400);
   }
 
-  const task = db
-    .select()
-    .from(tasksTable)
+  if (!(await userOwnsProject(projectId, user.id))) {
+    return c.json({ error: "Project not found" }, 404);
+  }
+
+  const [deletedTask] = await db
+    .delete(tasksTable)
     .where(
-        and(
-            eq(tasksTable.id, taskId),
-            eq(tasksTable.projectId, projectId)
-        )
+      and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)),
     )
-    .get();
+    .returning({ id: tasksTable.id });
 
-  if (!task) {
+  if (!deletedTask) {
     return c.json({ error: "Task not found" }, 404);
   }
-
-  const updatedTask = db
-    .update(tasksTable)
-    .set(body)
-    .where(
-        and(
-            eq(tasksTable.id, taskId),
-            eq(tasksTable.projectId, projectId)
-        )
-    )
-    .returning()
-    .get();
-
-  return c.json(updatedTask);
-});
-
-projectTasks.delete("/:projectId/tasks/:taskId", (c) => {
-  const taskId = Number(c.req.param("taskId"));
-  const projectId = Number(c.req.param("projectId"));
-
-  if (!Number.isInteger(taskId) || taskId <= 0) {
-    return c.json({ error: "Invalid task id" }, 400);
-  }
-      if (!Number.isInteger(projectId) || projectId <= 0) {
-    return c.json({ error: "Invalid project id" }, 400);
-  }
-
-
-  const task = db
-    .select()
-    .from(tasksTable)
-    .where(
-      and(
-        eq(tasksTable.id, taskId),
-        eq(tasksTable.projectId, projectId)
-      )
-    )
-    .get();
-
-  if (!task) {
-    return c.json({ error: "Task not found" }, 404);
-  }
-
-  db.delete(tasksTable)
-    .where(
-      and(
-        eq(tasksTable.id, taskId),
-        eq(tasksTable.projectId, projectId)
-      )
-    )
-    .run();
 
   return c.json({ message: "Task deleted successfully" });
 });

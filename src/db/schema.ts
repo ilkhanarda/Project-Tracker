@@ -1,55 +1,51 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
-  sqliteTable,
+  pgTable,
+  serial,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const usersTable = sqliteTable(
+const timestamps = {
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+};
+
+export const usersTable = pgTable(
   "users",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-
+    id: serial("id").primaryKey(),
     email: text("email").notNull(),
-
     passwordHash: text("password_hash").notNull(),
-
     displayName: text("display_name").notNull(),
-
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`)
-      .$onUpdate(() => new Date()),
+    ...timestamps,
   },
   (table) => [
     uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
   ],
 );
 
-export const sessionsTable = sqliteTable(
+export const sessionsTable = pgTable(
   "sessions",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-
+    id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
-      .references(() => usersTable.id, {
-        onDelete: "cascade",
-      }),
-
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
-
-    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-
-    createdAt: integer("created_at", { mode: "timestamp" })
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
-      .default(sql`(unixepoch())`),
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("sessions_token_hash_unique").on(table.tokenHash),
@@ -58,53 +54,37 @@ export const sessionsTable = sqliteTable(
   ],
 );
 
-export const projectsTable = sqliteTable(
+export const projectsTable = pgTable(
   "projects",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-
+    id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
-      .references(() => usersTable.id, {
-        onDelete: "cascade",
-      }),
-
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-
     description: text("description"),
-
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`)
-      .$onUpdate(() => new Date()),
+    pinned: boolean("pinned").notNull().default(false),
+    ...timestamps,
   },
   (table) => [index("projects_user_id_idx").on(table.userId)],
 );
 
-export const authTokensTable = sqliteTable(
+export const authTokensTable = pgTable(
   "auth_tokens",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-
+    id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
-      .references(() => usersTable.id, {
-        onDelete: "cascade",
-      }),
-
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
-
     type: text("type", {
       enum: ["email_verification", "password_reset"],
     }).notNull(),
-
-    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-
-    usedAt: integer("used_at", { mode: "timestamp" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("auth_tokens_token_hash_unique").on(table.tokenHash),
@@ -113,31 +93,16 @@ export const authTokensTable = sqliteTable(
   ],
 );
 
-export const tasksTable = sqliteTable(
+export const tasksTable = pgTable(
   "tasks",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-
+    id: serial("id").primaryKey(),
     projectId: integer("project_id")
       .notNull()
-      .references(() => projectsTable.id, {
-        onDelete: "cascade",
-      }),
-
+      .references(() => projectsTable.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
-
-    completed: integer("completed", { mode: "boolean" })
-      .notNull()
-      .default(false),
-
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`)
-      .$onUpdate(() => new Date()),
+    completed: boolean("completed").notNull().default(false),
+    ...timestamps,
   },
   (table) => [
     index("tasks_project_id_idx").on(table.projectId),
