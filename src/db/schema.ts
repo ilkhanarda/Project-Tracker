@@ -102,6 +102,7 @@ export const tasksTable = pgTable(
       .references(() => projectsTable.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     completed: boolean("completed").notNull().default(false),
+    position: integer("position").notNull().default(0),
     ...timestamps,
   },
   (table) => [
@@ -109,6 +110,10 @@ export const tasksTable = pgTable(
     index("tasks_project_completed_idx").on(
       table.projectId,
       table.completed,
+    ),
+    index("tasks_project_position_idx").on(
+      table.projectId,
+      table.position,
     ),
   ],
 );

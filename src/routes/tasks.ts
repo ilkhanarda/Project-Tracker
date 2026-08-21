@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -18,6 +18,10 @@ const updateTaskSchema = createTaskSchema
   .refine((body) => Object.keys(body).length > 0, {
     message: "At least one field is required",
   });
+
+const reorderTasksSchema = z.object({
+  taskIds: z.array(z.number().int().positive()).max(500),
+});
 
 export const projectTasks = new Hono<AppEnv>();
 
@@ -58,7 +62,12 @@ projectTasks.get("/:projectId/tasks", async (c) => {
   const tasks = await db
     .select()
     .from(tasksTable)
-    .where(eq(tasksTable.projectId, projectId));
+    .where(eq(tasksTable.projectId, projectId))
+    .orderBy(
+      asc(tasksTable.position),
+      asc(tasksTable.createdAt),
+      asc(tasksTable.id),
+    );
 
   return c.json(tasks);
 });
@@ -79,12 +88,18 @@ projectTasks.post(
       return c.json({ error: "Project not found" }, 404);
     }
 
+    const [positionResult] = await db
+      .select({ maxPosition: max(tasksTable.position) })
+      .from(tasksTable)
+      .where(eq(tasksTable.projectId, projectId));
+
     const [task] = await db
       .insert(tasksTable)
       .values({
         title: body.title,
         completed: body.completed,
         projectId,
+        position: (positionResult?.maxPosition ?? -1) + 1,
       })
       .returning();
 
@@ -93,6 +108,60 @@ projectTasks.post(
     }
 
     return c.json(task, 201);
+  },
+);
+
+projectTasks.patch(
+  "/:projectId/tasks/reorder",
+  zValidator("json", reorderTasksSchema),
+  async (c) => {
+    const projectId = parsePositiveId(c.req.param("projectId"));
+    const { taskIds } = c.req.valid("json");
+    const user = c.get("user");
+
+    if (projectId === null) {
+      return c.json({ error: "Invalid project id" }, 400);
+    }
+
+    if (!(await userOwnsProject(projectId, user.id))) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const existingTasks = await db
+      .select({ id: tasksTable.id })
+      .from(tasksTable)
+      .where(eq(tasksTable.projectId, projectId));
+    const existingIds = new Set(existingTasks.map((task) => task.id));
+
+    if (
+      taskIds.length !== existingIds.size ||
+      new Set(taskIds).size !== taskIds.length ||
+      taskIds.some((taskId) => !existingIds.has(taskId))
+    ) {
+      return c.json({ error: "Task order must contain every project task once" }, 400);
+    }
+
+    await Promise.all(
+      taskIds.map((taskId, position) =>
+        db
+          .update(tasksTable)
+          .set({ position })
+          .where(
+            and(
+              eq(tasksTable.id, taskId),
+              eq(tasksTable.projectId, projectId),
+            ),
+          ),
+      ),
+    );
+
+    const reorderedTasks = await db
+      .select()
+      .from(tasksTable)
+      .where(eq(tasksTable.projectId, projectId))
+      .orderBy(asc(tasksTable.position), asc(tasksTable.id));
+
+    return c.json(reorderedTasks);
   },
 );
 

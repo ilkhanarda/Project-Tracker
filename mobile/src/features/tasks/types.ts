@@ -3,6 +3,7 @@ export type Task = {
   projectId: number;
   title: string;
   completed: boolean;
+  position: number;
   createdAt: string;
   updatedAt: string;
 };
