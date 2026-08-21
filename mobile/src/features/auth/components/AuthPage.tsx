@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   appIconFallback: {
     color: '#FFFFFF',
     fontSize: 27,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   header: {
     marginBottom: 25,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#111113',
     fontSize: 34,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -1.05,
     lineHeight: 40,
     textAlign: 'center',
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     color: 'rgba(28, 28, 30, 0.82)',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   inputSurface: {
     height: 56,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     color: '#1C1C1E',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   visibilityButton: {
     minWidth: 32,
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#C62921',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     lineHeight: 18,
   },
   submitPressable: {
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   submitText: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   switcher: {
     minHeight: 29,
@@ -621,6 +621,6 @@ const styles = StyleSheet.create({
   switcherLink: {
     color: '#007AFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

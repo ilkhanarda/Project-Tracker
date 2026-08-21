@@ -1,0 +1,41 @@
+export const themeColors = {
+  light: {
+    appBackground: '#E9EBF0',
+    drawerBackground: '#F7F7FA',
+    surface: '#F7F7FA',
+    card: '#FFFFFF',
+    cardMuted: '#F1F1F6',
+    border: '#E1E1E8',
+    text: '#17171F',
+    secondaryText: '#64646e',
+    primary: '#4F46E5',
+    primarySoft: '#EEECFF',
+    primaryBorder: '#CFCBFF',
+    success: '#2F7D5B',
+    successSoft: '#E9F7EF',
+    danger: '#C63D4F',
+    dangerSoft: '#FFF0F2',
+    overlay: 'rgba(15,17,25,0.32)',
+  },
+  dark: {
+    appBackground: '#000000',
+    drawerBackground: '#000000',
+    surface: '#171717',
+    card: '#212121',
+    cardMuted: '#2C2C2E',
+    border: '#363638',
+    text: '#FFFFFF',
+    secondaryText: '#A1A1AA',
+    primary: '#A970FF',
+    primarySoft: 'rgba(169,112,255,0.18)',
+    primaryBorder: '#65428F',
+    success: '#75D5A6',
+    successSoft: '#173426',
+    danger: '#FF7B87',
+    dangerSoft: '#3A2024',
+    overlay: 'rgba(0,0,0,0.72)',
+  },
+} as const;
+
+export type ThemeName = keyof typeof themeColors;
+export type Colors = (typeof themeColors)[ThemeName];

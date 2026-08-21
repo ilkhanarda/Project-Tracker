@@ -32,6 +32,13 @@ export function updateTaskRequest(
   );
 }
 
+export function reorderTasksRequest(projectId: number, taskIds: number[]) {
+  return apiRequest<Task[]>(
+    `/projects/${projectId}/tasks/reorder`,
+    jsonRequest('PATCH', { taskIds }),
+  );
+}
+
 export function deleteTaskRequest(projectId: number, taskId: number) {
   return apiRequest<{ message: string }>(
     `/projects/${projectId}/tasks/${taskId}`,
